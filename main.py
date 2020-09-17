@@ -111,13 +111,13 @@ def parse_MMI(content: bytes):
 
 # phase 가 1보다 크면
 def eqk_handler(data: str, buffer: list):
-    data = data[0 - ((max_eqk_str_len * 8 + max_eqk_info_len))]
+    data = data[0 - ((max_eqk_str_len * 8 + max_eqk_info_len)) :]
     origin_lat = 30 + (int(data[0:10], 2) / 100)  # 위도
     origin_lon = 124 + (int(data[10:20], 2) / 100)
     origin_x = None
     origin_y = None  # TODO : fn_parseY, fn_parseX
     eqk_mag = int(data[20:27], 2) / 10
-    eak_dep = int(data[27:37], 2) / 10
+    eqk_dep = int(data[27:37], 2) / 10
     eqk_time = int(str(int(data[37:59], 2)) + "000")
     eqk_id = int("20" + str(int(data[69:95], 2)))
     eqk_max = int(data[95:99], 2)
@@ -131,7 +131,17 @@ def eqk_handler(data: str, buffer: list):
     else:
         eqk_max_area.append("-")
 
-    eqk_str = None
+    return EqkInfo(
+        origin_lat,
+        origin_lon,
+        origin_x,
+        origin_y,
+        eqk_mag,
+        eqk_dep,
+        eqk_time,
+        eqk_id,
+        eqk_max_area,
+    )
     # TODO : 398~400 구현
 
 
@@ -139,12 +149,12 @@ def eqk_handler(data: str, buffer: list):
 class EqkInfo:
     """ eqk_handler에서 반환하는 dataclass입니다. """
 
-    origin_lat: int
-    origin_lon: int
+    origin_lat: float
+    origin_lon: float
     origin_x: None
     origin_y: None
-    eqk_mag: int
-    eqk_dep: int
+    eqk_mag: float
+    eqk_dep: float
     eqk_time: int
     eqk_id: int
     eqk_max_area: list
