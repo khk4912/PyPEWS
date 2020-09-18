@@ -1,6 +1,8 @@
 import datetime
 from typing import Union
+from urllib.parse import unquote
 from dataclasses import dataclass
+
 import requests
 
 from errors import HTMLStatusException
@@ -37,6 +39,25 @@ def lpad(text: str, length: int):
     while len(text) < length:
         text = "0" + text
     return text
+
+
+def escape(text: str) -> str:
+    """
+    https://www.ecma-international.org/ecma-262/9.0/index.html#sec-escape-string
+    항상 char(16비트, unsigned int) 는 256보다 작다고 가정.
+    """
+    ignore_char = (
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+        "0123456789@*_+-./"
+    )
+    result = ""
+
+    for i in text:
+        if i in ignore_char:
+            result += i
+        else:
+            result += "%{0:02x}".format(ord(i))
+    return result
 
 
 def get_MMI(url: Union[str, None] = None) -> bytes:
@@ -109,8 +130,25 @@ def parse_MMI(content: bytes):
     # ====================================
 
 
+@dataclass
+class EqkInfo:
+    """ eqk_handler에서 반환하는 dataclass입니다. """
+
+    origin_lat: float
+    origin_lon: float
+    origin_x: None
+    origin_y: None
+    eqk_mag: float
+    eqk_dep: float
+    eqk_time: int
+    eqk_id: int
+    eqk_max: int
+    eqk_max_area: list
+    eqk_str: str
+
+
 # phase 가 1보다 크면
-def eqk_handler(data: str, buffer: list):
+def eqk_handler(data: str, buffer: list) -> EqkInfo:
     data = data[0 - ((max_eqk_str_len * 8 + max_eqk_info_len)) :]
     origin_lat = 30 + (int(data[0:10], 2) / 100)  # 위도
     origin_lon = 124 + (int(data[10:20], 2) / 100)
@@ -121,12 +159,15 @@ def eqk_handler(data: str, buffer: list):
     eqk_time = int(str(int(data[37:59], 2)) + "000")
     eqk_id = int("20" + str(int(data[69:95], 2)))
     eqk_max = int(data[95:99], 2)
-    eqk_max_area_str = data[99:176]
+    eqk_max_area_str = data[99:116]
     eqk_max_area = []
+
+    buffer = [int(x, 2) for x in buffer]
+    eqk_str = unquote(escape("".join(map(chr, buffer))))
 
     if eqk_max_area_str != "11111111111111111":
         for i in range(17):
-            if eqk_max_area_str[0] == "1":
+            if eqk_max_area_str[i] == "1":
                 eqk_max_area.append(regions[i])
     else:
         eqk_max_area.append("-")
@@ -140,21 +181,7 @@ def eqk_handler(data: str, buffer: list):
         eqk_dep,
         eqk_time,
         eqk_id,
+        eqk_max,
         eqk_max_area,
-    )
-    # TODO : 398~400 구현
-
-
-@dataclass
-class EqkInfo:
-    """ eqk_handler에서 반환하는 dataclass입니다. """
-
-    origin_lat: float
-    origin_lon: float
-    origin_x: None
-    origin_y: None
-    eqk_mag: float
-    eqk_dep: float
-    eqk_time: int
-    eqk_id: int
-    eqk_max_area: list
+        eqk_str,
+    )  # TODO : 398~400 구현
