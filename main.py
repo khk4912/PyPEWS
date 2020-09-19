@@ -1,10 +1,11 @@
 import datetime
-from typing import Tuple, Union
+from typing import List, Tuple, Union
 from urllib.parse import unquote
 from dataclasses import dataclass
 
 import requests
 
+from stations import sta
 from errors import HTMLStatusException
 
 regions: list = [
@@ -31,6 +32,7 @@ tzMsec: int = timeZone * 3600000
 tide: int = 1000
 header_len: int = 4
 max_eqk_info_len: int = 120
+stations: list = sta
 max_eqk_str_len: int = 60
 DATA_PATH: str = "https://www.weather.go.kr/pews/data"
 
@@ -81,32 +83,6 @@ def get_MMI(url: Union[str, None] = None) -> bytes:
             datetime.datetime.utcnow() - datetime.timedelta(seconds=1)
         ).strftime("%Y%m%d%H%M%S")
         url = f"{DATA_PATH}/{pTime}.b"
-
-    r = requests.get(url, timeout=1.0)
-
-    if (status := r.status_code) == 200:
-        return r.content
-    else:
-        raise HTMLStatusException(str(status))
-
-
-def get_sta(url: Union[str, None] = None) -> bytes:
-    """
-    스테이션 정보를 얻는 url에서 binary 정보를 얻습니다.
-
-    Args:
-        url (str, optional): 스테이션 정보를 얻을 url입니다.
-            만약 입력하지 않으면 현재 시간으로 url을 자동 생성합니다.
-    
-    Returns:
-        bytes: URL 에서 얻은 스테이션 바이트 정보를 반환합니다.
-    """
-
-    if url is None:
-        pTime = (
-            datetime.datetime.utcnow() - datetime.timedelta(seconds=1)
-        ).strftime("%Y%m%d%H%M%S")
-        url = f"{DATA_PATH}/{pTime}.s"
 
     r = requests.get(url, timeout=1.0)
 
@@ -195,7 +171,6 @@ class EqkInfo:
     eqk_str: str
 
 
-# phase 가 1보다 크면
 def eqk_handler(data: str, buffer: list) -> EqkInfo:
     """
     phase가 1 이상인 경우 호출하여 지진의 정보를 반환합니다.
@@ -251,3 +226,63 @@ def callback(data: list):
 
 def mmi_bin_handler():
     pass
+
+
+def get_sta(url: Union[str, None] = None) -> bytes:
+    """
+    스테이션 정보를 얻는 url에서 binary 정보를 얻습니다.
+
+    Args:
+        url (str, optional): 스테이션 정보를 얻을 url입니다.
+            만약 입력하지 않으면 현재 시간으로 url을 자동 생성합니다.
+    
+    Returns:
+        bytes: URL 에서 얻은 스테이션 바이트 정보를 반환합니다.
+    """
+
+    if url is None:
+        pTime = (
+            datetime.datetime.utcnow() - datetime.timedelta(seconds=1)
+        ).strftime("%Y%m%d%H%M%S")
+        url = f"{DATA_PATH}/{pTime}.s"
+
+    r = requests.get(url, timeout=1.0)
+
+    if (status := r.status_code) == 200:
+        return r.content
+    else:
+        raise HTMLStatusException(str(status))
+
+
+@dataclass
+class StaInfo:
+    name: str
+    lat: float
+    lon: float
+    idx: int
+
+
+def parse_sta(content: bytes) -> str:
+    data = bytearray(content)
+    bin_data = ["{:0b}".format(x) for x in data]
+    binary_str = ""
+
+    for i in bin_data:
+        binary_str += lpad(i, 8)
+
+    return binary_str
+
+
+def get_sta_info(data: str) -> List[StaInfo]:
+    new_sta = []
+    sta_lat = []
+    sta_lon = []
+
+    for i in range(0, len(data), 20):
+        sta_lat.append(30 + int(data[i : i + 10], 2) / 100)
+        sta_lon.append(120 + int(data[i + 10 : i + 20], 2) / 100)
+
+    for i in range(len(sta_lat)):
+        new_sta.append(StaInfo(stations[i], sta_lat[i], sta_lon[i], i))
+
+    return new_sta
