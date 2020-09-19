@@ -1,5 +1,5 @@
 import datetime
-from typing import Union
+from typing import Tuple, Union
 from urllib.parse import unquote
 from dataclasses import dataclass
 
@@ -43,8 +43,13 @@ def lpad(text: str, length: int):
 
 def escape(text: str) -> str:
     """
-    https://www.ecma-international.org/ecma-262/9.0/index.html#sec-escape-string
-    항상 char(16비트, unsigned int) 는 256보다 작다고 가정.
+    https://bit.ly/2ZQiad8 의 파이썬 구현입니다.
+    
+    Args:
+        text (str): escape할 문자열.
+    
+    Returns:
+        str: escape된 문자열
     """
     ignore_char = (
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -61,7 +66,16 @@ def escape(text: str) -> str:
 
 
 def get_MMI(url: Union[str, None] = None) -> bytes:
+    """
+    MMI 정보를 얻는 url에서 binary 정보를 얻습니다.
 
+    Args:
+        url (str, optional): MMI 정보를 얻을 url입니다.
+            만약 입력하지 않으면 현재 시간으로 url을 자동 생성합니다.
+    
+    Returns:
+        bytes: URL 에서 얻은 MMI 바이트 정보를 반환합니다.
+    """
     if url is None:
         pTime = (
             datetime.datetime.utcnow() - datetime.timedelta(seconds=1)
@@ -77,6 +91,17 @@ def get_MMI(url: Union[str, None] = None) -> bytes:
 
 
 def get_sta(url: Union[str, None] = None) -> bytes:
+    """
+    스테이션 정보를 얻는 url에서 binary 정보를 얻습니다.
+
+    Args:
+        url (str, optional): 스테이션 정보를 얻을 url입니다.
+            만약 입력하지 않으면 현재 시간으로 url을 자동 생성합니다.
+    
+    Returns:
+        bytes: URL 에서 얻은 스테이션 바이트 정보를 반환합니다.
+    """
+
     if url is None:
         pTime = (
             datetime.datetime.utcnow() - datetime.timedelta(seconds=1)
@@ -91,7 +116,17 @@ def get_sta(url: Union[str, None] = None) -> bytes:
         raise HTMLStatusException(str(status))
 
 
-def parse_MMI(content: bytes):
+def parse_MMI(content: bytes) -> Tuple[int, str, list]:
+    """
+    get_MMI 에서 얻은 바이트 정보를 파싱하여 
+    원본 JS 함수 변수인 phase, binaryStr, infoStrArr을 반환합니다.
+
+    Args:
+        content (bytes): get_MMI 에서 얻은 바이트 정보입니다.
+    
+    Returns:
+        Tuple[int, str, list]: phase, binaryStr, infoStrArr을 반환합니다.
+    """
     data = bytearray(content)
     bin_data = ["{:0b}".format(x) for x in data]  # .toString(2) 된 값
     byte_length = len(bin_data)
@@ -118,21 +153,34 @@ def parse_MMI(content: bytes):
         phase = 3
 
     assert phase is not None
-    print(phase)
     # ====================================
-    info_str = []
+    info_str_arr = []
     for i in range(byte_length - max_eqk_str_len, byte_length):
-        info_str.append(bin_data[i])
+        info_str_arr.append(bin_data[i])
 
     # TODO : get_sta 구현 후 재시작 필요 (Line 289~)
 
-    return binary_str, info_str
+    return phase, binary_str, info_str_arr
     # ====================================
 
 
 @dataclass
 class EqkInfo:
-    """ eqk_handler에서 반환하는 dataclass입니다. """
+    """
+    지진 정보를 나타내는 dataclass입니다.
+
+    Args:
+        origin_lat (float): 위도
+        origin_lon (float): 경도
+        origin_x (None): 
+        origin_y (None):
+        eqk_mag (float): 지진의 메그니튜드 규모
+        eqk_dep (float): 지진의 깊이
+        eqk_id (int): 지진 고유 ID
+        eqk_max (int): 지진의 최대진도
+        eqk_max_area (list): 최대진도 지역
+        eqk_str (str): 지진 상세문구
+    """
 
     origin_lat: float
     origin_lon: float
@@ -149,6 +197,16 @@ class EqkInfo:
 
 # phase 가 1보다 크면
 def eqk_handler(data: str, buffer: list) -> EqkInfo:
+    """
+    phase가 1 이상인 경우 호출하여 지진의 정보를 반환합니다.
+
+    Args:
+        data (str): parse_MMI 에서 반환하는 binary_str
+        buffer (list): parse_MMI에서 반환하는 info_str_arr
+    
+    Returns:
+        Eqkinfo: 지진 정보를 나타내는 EqkInfo dataclass를 반환합니다.
+    """
     data = data[0 - ((max_eqk_str_len * 8 + max_eqk_info_len)) :]
     origin_lat = 30 + (int(data[0:10], 2) / 100)  # 위도
     origin_lon = 124 + (int(data[10:20], 2) / 100)
@@ -185,3 +243,11 @@ def eqk_handler(data: str, buffer: list) -> EqkInfo:
         eqk_max_area,
         eqk_str,
     )  # TODO : 398~400 구현
+
+
+def callback(data: list):
+    mmi_object = mmi_bin_handler()
+
+
+def mmi_bin_handler():
+    pass
