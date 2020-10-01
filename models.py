@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Union
 
 
 @dataclass
@@ -34,7 +35,19 @@ class EqkInfo:
 
 @dataclass
 class StaInfo:
-    name: str
+    """
+    지진계 정보를 나타내는 dataclass 입니다.
+
+    Args:
+        name (str): 지진계 이름
+        lat (float): 위도
+        lon (float): 경도
+        idx (int): 지진계 ID
+        mmi (int): 해당 지진계 진도
+    """
+
+    name: Union[str, None]
     lat: float
     lon: float
     idx: int
+    mmi: int

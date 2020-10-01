@@ -1,4 +1,4 @@
-sta: list = [
+stations_name: list = [
     "안동",
     "송현",
     "앙성",
