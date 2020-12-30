@@ -14,11 +14,11 @@ from utils import Utils
 class PyPEWS:
     def __init__(self) -> None:
         super().__init__()
+        self.TIDE = self._update_tide()
         self.clock = datetime.utcnow() - timedelta(seconds=self.TIDE - DELAY)
         self.logger = logging.getLogger("PyPEWS")
         self.phase = 1
         self.sta_list: List[StaInfo] = []
-        self.TIDE = self._update_tide()
 
     @property
     def pTime(self) -> str:
